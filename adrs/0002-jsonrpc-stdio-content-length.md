@@ -41,7 +41,7 @@ and shipped at scale by Visual Studio and every LSP-based editor.
 
 The wire format is:
 
-```
+```text
 Content-Length: 58\r\n
 \r\n
 {"jsonrpc":"2.0","id":1,"method":"ping","params":["hi"]}

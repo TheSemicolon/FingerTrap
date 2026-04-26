@@ -24,12 +24,17 @@ if [[ "${1:-}" == "--verbose" ]]; then
     VERBOSE=true
 fi
 
+# Full helper set per the agent-framework script-output convention; some are
+# unused in this script but kept for consistency with other repo scripts.
+# shellcheck disable=SC2317
+{
 ok()     { echo "OK    [$1] $2"; }
 skip()   { echo "SKIP  [$1] $2"; }
 warn()   { echo "WARN  [$1] $2"; }
 info()   { echo "INFO  $*"; }
 err()    { echo "ERROR [$1] $2" >&2; }
 detail() { if $VERBOSE; then echo "      $*"; fi; }
+}
 
 error_count=0
 warn_count=0

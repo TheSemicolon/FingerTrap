@@ -14,7 +14,7 @@ IPC is JSON-RPC 2.0 over stdio with `Content-Length` framing — `StreamJsonRpc`
 
 ## Repo layout
 
-```
+```text
 adrs/        Architecture Decision Records (MADR minimal)
 docs/        Project documentation (milestones, design notes)
 scripts/     Repo-level scripts (check.sh, etc.)
