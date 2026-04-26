@@ -427,3 +427,52 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Node / TypeScript / pnpm
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+.eslintcache
+.stylelintcache
+.tsbuildinfo
+*.tsbuildinfo
+
+# Vite
+src-ui/dist/
+src-ui/dist-ssr/
+src-ui/.vite/
+
+# Rust / Cargo
+target/
+**/*.rs.bk
+*.pdb
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
+
+# .NET publish output (sidecar artifacts staged for Tauri bundle)
+src-sidecar/**/publish/
+
+# OS / editor
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+*.swp
+*.swo
+*~
+.idea/
+
+# Local environment
+.env
+.env.*
+!.env.example
