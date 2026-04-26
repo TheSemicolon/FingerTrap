@@ -12,10 +12,7 @@ pub struct SidecarState {
 
 pub fn spawn(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
-    let (mut rx, child) = app
-        .shell()
-        .sidecar("fingertrap-sidecar")?
-        .spawn()?;
+    let (mut rx, child) = app.shell().sidecar("fingertrap-sidecar")?.spawn()?;
 
     let state: State<SidecarState> = app_handle.state();
     *state.child.lock().unwrap() = Some(child);

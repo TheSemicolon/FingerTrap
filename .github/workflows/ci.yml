@@ -90,9 +90,7 @@ jobs:
         working-directory: src-tauri
       - run: cargo clippy --all-targets -- -D warnings
         working-directory: src-tauri
-      # --locked omitted at M0: Cargo.lock is generated on first cargo run.
-      # Switch to `cargo check --locked` once Cargo.lock is committed.
-      - run: cargo check
+      - run: cargo check --locked
         working-directory: src-tauri
 
   repo-check:

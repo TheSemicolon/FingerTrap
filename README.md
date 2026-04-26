@@ -32,6 +32,36 @@ src-ui/      TypeScript + Vite UI
 
 See `adrs/0004-repo-conventions.md` for the canonical version.
 
+## Local development
+
+Verify and install required tooling:
+
+```bash
+scripts/dev-setup.sh             # check only
+scripts/dev-setup.sh --install   # install missing tools (rustup, pnpm via corepack, apt deps)
+```
+
+Tools required: .NET 10 SDK, Node.js 22+, pnpm 10 (via corepack), rustup
+(stable) + cargo, and on Linux the Tauri system libraries. After installing
+rustup, run `. "$HOME/.cargo/env"` (or restart your shell) before invoking
+`cargo`.
+
+Per-component dev loops:
+
+```bash
+# Sidecar (.NET)
+cd src-sidecar && dotnet restore && dotnet build && dotnet test
+
+# UI (TypeScript)
+cd src-ui && pnpm install && pnpm lint && pnpm typecheck && pnpm build
+
+# Tauri (Rust) — requires rustup + Linux system deps on Linux
+cd src-tauri && cargo fmt --check && cargo clippy -- -D warnings && cargo check
+
+# Repo-level
+scripts/check.sh
+```
+
 ## Status
 
 M0 — skeleton. See `docs/milestones.md` for the full M0–M8 sequence.

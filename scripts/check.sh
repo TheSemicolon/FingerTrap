@@ -73,6 +73,8 @@ required_files=(
     ".github/workflows/ci.yml"
     ".github/workflows/lint-pr-title.yml"
     ".github/PULL_REQUEST_TEMPLATE.md"
+    "scripts/dev-setup.sh"
+    "scripts/check.sh"
 )
 for f in "${required_files[@]}"; do
     if [[ -f "$f" ]]; then
