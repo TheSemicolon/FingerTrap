@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FingerTrap.Sidecar.Abstractions/FingerTrap.Sidecar.Abstractions.csproj" />
+    <Project Path="src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FingerTrap.Sidecar.Tests/FingerTrap.Sidecar.Tests.csproj" />
+  </Folder>
+</Solution>
