@@ -67,7 +67,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2025, macos-15]
+        include:
+          - os: ubuntu-24.04
+            rid: linux-x64
+            triple: x86_64-unknown-linux-gnu
+            ext: ""
+          - os: windows-2025
+            rid: win-x64
+            triple: x86_64-pc-windows-msvc
+            ext: ".exe"
+          - os: macos-15
+            rid: osx-arm64
+            triple: aarch64-apple-darwin
+            ext: ""
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +92,26 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0"
+          cache: true
+          cache-dependency-path: src-sidecar/**/*.csproj
+      - name: Stage sidecar binary for Tauri externalBin
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_dir="$RUNNER_TEMP/sidecar-publish"
+          dotnet publish src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
+            -c Release \
+            -r "${{ matrix.rid }}" \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:DebugType=embedded \
+            -o "$publish_dir"
+          mkdir -p src-tauri/binaries
+          cp "$publish_dir/fingertrap-sidecar${{ matrix.ext }}" \
+             "src-tauri/binaries/fingertrap-sidecar-${{ matrix.triple }}${{ matrix.ext }}"
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
