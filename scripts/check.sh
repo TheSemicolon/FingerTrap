@@ -100,7 +100,7 @@ else
         n=$((10#${base:0:4}))
         numbers+=("$n")
     done
-    IFS=$'\n' read -r -d '' -a sorted < <(printf '%s\n' "${numbers[@]}" | sort -n && printf '\0')
+    IFS=$'\n' read -r -d '' -a sorted < <(printf '%s\n' "${numbers[@]}" | sort -n; printf '\0')
 
     duplicates=()
     gaps=()
