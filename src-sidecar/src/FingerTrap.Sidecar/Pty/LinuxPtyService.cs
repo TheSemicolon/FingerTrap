@@ -441,27 +441,23 @@ internal sealed class LinuxPtyService : IPtyService
 
         private void ApplyPendingResize()
         {
-            // Cleanup signals Cancellation before closing the master fd; bailing
-            // here prevents a queued timer callback from racing into ioctl on a
-            // closed (or reused) fd.
-            if (Cancellation.IsCancellationRequested)
-            {
-                return;
-            }
-
-            int cols, rows;
+            // Hold _resizeLock across the cancellation check and ioctl so
+            // Cleanup cannot dispose the master fd between the two and leave
+            // ioctl issuing TIOCSWINSZ on a closed (or reused) descriptor.
             lock (_resizeLock)
             {
-                cols = _pendingCols;
-                rows = _pendingRows;
-            }
+                if (Cancellation.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            var ws = new LinuxNativeMethods.WinSize
-            {
-                ws_col = (ushort)Math.Max(1, cols),
-                ws_row = (ushort)Math.Max(1, rows),
-            };
-            LinuxNativeMethods.Ioctl(MasterFd, LinuxNativeMethods.TIOCSWINSZ, ref ws);
+                var ws = new LinuxNativeMethods.WinSize
+                {
+                    ws_col = (ushort)Math.Max(1, _pendingCols),
+                    ws_row = (ushort)Math.Max(1, _pendingRows),
+                };
+                LinuxNativeMethods.Ioctl(MasterFd, LinuxNativeMethods.TIOCSWINSZ, ref ws);
+            }
         }
 
         public void Kill()
@@ -488,18 +484,21 @@ internal sealed class LinuxPtyService : IPtyService
             {
             }
 
-            try
-            {
-                MasterStream.Dispose();
-            }
-            catch
-            {
-                // best-effort
-            }
-
             Timer? timer;
             lock (_resizeLock)
             {
+                // Dispose under _resizeLock so an in-flight ApplyPendingResize
+                // either sees cancellation and bails, or finishes its ioctl
+                // before the master fd closes.
+                try
+                {
+                    MasterStream.Dispose();
+                }
+                catch
+                {
+                    // best-effort
+                }
+
                 timer = _resizeTimer;
                 _resizeTimer = null;
             }
