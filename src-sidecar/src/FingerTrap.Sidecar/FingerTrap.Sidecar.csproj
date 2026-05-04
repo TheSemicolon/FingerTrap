@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FingerTrap.Sidecar</RootNamespace>
+    <AssemblyName>fingertrap-sidecar</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FingerTrap.Sidecar.Abstractions\FingerTrap.Sidecar.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StreamJsonRpc" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FingerTrap.Sidecar.Tests" />
+  </ItemGroup>
+</Project>
