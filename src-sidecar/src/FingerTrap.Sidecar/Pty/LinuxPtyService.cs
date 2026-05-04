@@ -441,6 +441,14 @@ internal sealed class LinuxPtyService : IPtyService
 
         private void ApplyPendingResize()
         {
+            // Cleanup signals Cancellation before closing the master fd; bailing
+            // here prevents a queued timer callback from racing into ioctl on a
+            // closed (or reused) fd.
+            if (Cancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
             int cols, rows;
             lock (_resizeLock)
             {
