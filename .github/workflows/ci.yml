@@ -32,7 +32,9 @@ jobs:
         with:
           dotnet-version: "10.0"
           cache: true
-          cache-dependency-path: src-sidecar/**/*.csproj
+          cache-dependency-path: |
+            src-sidecar/**/*.csproj
+            src-sidecar/**/packages.lock.json
       - run: dotnet restore --locked-mode
       - run: dotnet build -c Release --no-restore
       - run: dotnet test --no-build -c Release
@@ -81,10 +83,14 @@ jobs:
             triple: aarch64-apple-darwin
             ext: ""
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: src-tauri
     steps:
       - uses: actions/checkout@v4
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
+        working-directory: ${{ github.workspace }}
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -96,12 +102,21 @@ jobs:
         with:
           dotnet-version: "10.0"
           cache: true
-          cache-dependency-path: src-sidecar/**/*.csproj
+          cache-dependency-path: |
+            src-sidecar/**/*.csproj
+            src-sidecar/**/packages.lock.json
       - name: Stage sidecar binary for Tauri externalBin
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
           publish_dir="$RUNNER_TEMP/sidecar-publish"
+          # Lock-file integrity is validated by the sidecar job's
+          # `dotnet restore --locked-mode`. We can't run locked-mode here
+          # because the lock file has no per-RID graph (no
+          # <RuntimeIdentifiers>) and `dotnet publish -r <rid>` requires
+          # RID-specific assets — adding them under --locked-mode fails
+          # with NU1004. Revisit alongside ADR-0005 successor.
           dotnet publish src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
             -c Release \
             -r "${{ matrix.rid }}" \
@@ -119,11 +134,8 @@ jobs:
         with:
           workspaces: src-tauri
       - run: cargo fmt --check
-        working-directory: src-tauri
       - run: cargo clippy --all-targets -- -D warnings
-        working-directory: src-tauri
       - run: cargo check --locked
-        working-directory: src-tauri
 
   repo-check:
     name: repo-check

@@ -10,5 +10,6 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <NeutralLanguage>en</NeutralLanguage>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 </Project>

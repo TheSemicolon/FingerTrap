@@ -100,7 +100,8 @@ else
         n=$((10#${base:0:4}))
         numbers+=("$n")
     done
-    IFS=$'\n' read -r -d '' -a sorted < <(printf '%s\n' "${numbers[@]}" | sort -n && printf '\0')
+    sorted_input=$(printf '%s\n' "${numbers[@]}" | sort -n)
+    mapfile -t sorted <<<"$sorted_input"
 
     duplicates=()
     gaps=()
