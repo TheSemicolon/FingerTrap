@@ -162,11 +162,15 @@ RPC="src-sidecar/src/FingerTrap.Sidecar/Ipc/RpcSurface.cs"
 API="src-ui/src/api.ts"
 if [[ -f "$RPC" && -f "$API" ]]; then
     rpc_methods=$(grep -cE '^\s*public\s+(async\s+)?Task' "$RPC" || true)
-    api_types=$(grep -cE 'new\s+(RequestType|NotificationType)' "$API" || true)
-    if [[ "$rpc_methods" -eq "$api_types" ]]; then
-        ok "rpc-pairing" "RpcSurface methods=$rpc_methods, api.ts RequestType/NotificationType=$api_types"
+    rpc_notifications=$(grep -cE 'NotifyAsync\("[^"]+"' "$RPC" || true)
+    rpc_total=$((rpc_methods + rpc_notifications))
+    api_requests=$(grep -cE 'new\s+RequestType' "$API" || true)
+    api_notifications=$(grep -cE 'new\s+NotificationType' "$API" || true)
+    api_total=$((api_requests + api_notifications))
+    if [[ "$rpc_total" -eq "$api_total" ]]; then
+        ok "rpc-pairing" "RpcSurface=$rpc_methods req + $rpc_notifications notif, api.ts=$api_requests req + $api_notifications notif"
     else
-        warn "rpc-pairing" "RpcSurface methods=$rpc_methods, api.ts RequestType/NotificationType=$api_types (heuristic; verify manually per ADR-0003)"
+        warn "rpc-pairing" "RpcSurface=$rpc_methods req + $rpc_notifications notif ($rpc_total), api.ts=$api_requests req + $api_notifications notif ($api_total) (heuristic; verify manually per ADR-0003)"
         ((warn_count++)) || true
     fi
 else

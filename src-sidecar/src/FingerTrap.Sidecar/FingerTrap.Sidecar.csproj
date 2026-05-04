@@ -3,6 +3,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>FingerTrap.Sidecar</RootNamespace>
     <AssemblyName>fingertrap-sidecar</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

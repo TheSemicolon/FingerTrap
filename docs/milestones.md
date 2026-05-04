@@ -12,18 +12,25 @@ from a button click. The sidecar's `RpcSurface.PingAsync` returns
 `"pong: hello"`. The reply renders in the window. CI is green on all three
 runners. `scripts/check.sh` passes locally.
 
-## M1 — Pty.Net integration
+## M1 — Local PTY integration (Linux first)
 
-First real keypress end-to-end. `IPtyService` implementation backed by
-Pty.Net spawns a local shell. xterm.js renders sidecar PTY output via
-JSON-RPC notifications (`pty/output`). Keystrokes flow back through
-`pty/write`. ConPTY resize quirks handled (forwarding `pty/resize` and
-debouncing on the .NET side). Sidecar emits `pty/exit` when the shell
-terminates.
+First real keypress end-to-end. `IPtyService` implementation spawns a
+local shell over a pseudoterminal. xterm.js renders sidecar PTY output
+via JSON-RPC notifications (`pty/output`). Keystrokes flow back through
+`pty/write`. Resize is debounced on the .NET side and forwarded via
+`pty/resize`. Sidecar emits `pty/exit` when the shell terminates.
 
-**Acceptance:** open the app on Windows, macOS, and Linux. A shell prompt
-renders in xterm.js. `ls` produces correct output. Keystrokes echo. Window
-resize updates the PTY size and the prompt redraws cleanly.
+The Linux backend is implemented via direct libc P/Invoke
+(`posix_openpt` + `posix_spawn` with `POSIX_SPAWN_SETSID`); see
+ADR-0006. macOS and Windows are deferred — `pty/spawn` throws
+`PlatformNotSupportedException` on those platforms until their
+backends land.
+
+**Acceptance (Linux):** `pnpm tauri dev` opens a window with a shell
+prompt rendered in xterm.js. `ls` produces correct output. Keystrokes
+echo. Window resize updates the PTY size and the prompt redraws
+cleanly. CI is green on all three runners (sidecar/ui/tauri matrices
+build everywhere; PTY behavior is exercised on Linux only).
 
 ## M2 — Local terminal panes
 
