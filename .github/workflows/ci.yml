@@ -111,11 +111,13 @@ jobs:
         run: |
           set -euo pipefail
           publish_dir="$RUNNER_TEMP/sidecar-publish"
-          dotnet restore src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
-            --locked-mode \
-            -r "${{ matrix.rid }}"
+          # Lock-file integrity is validated by the sidecar job's
+          # `dotnet restore --locked-mode`. We can't run locked-mode here
+          # because the lock file has no per-RID graph (no
+          # <RuntimeIdentifiers>) and `dotnet publish -r <rid>` requires
+          # RID-specific assets — adding them under --locked-mode fails
+          # with NU1004. Revisit alongside ADR-0005 successor.
           dotnet publish src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
-            --no-restore \
             -c Release \
             -r "${{ matrix.rid }}" \
             --self-contained true \
