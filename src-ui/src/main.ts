@@ -1,8 +1,7 @@
 import './styles.css';
 import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
 import * as api from './api';
-
-const RESIZE_DEBOUNCE_MS = 80;
 
 function randomSessionId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -12,11 +11,12 @@ function randomSessionId(): string {
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const CHUNK = 0x8000;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    parts.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK)));
   }
-  return btoa(binary);
+  return btoa(parts.join(''));
 }
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -41,15 +41,15 @@ async function main(): Promise<void> {
     cursorBlink: true,
     allowProposedApi: true,
   });
+  const fit = new FitAddon();
+  term.loadAddon(fit);
   term.open(terminalEl);
+  fit.fit();
 
   await api.start();
 
   const sessionId = randomSessionId();
   const encoder = new TextEncoder();
-
-  const cols = term.cols;
-  const rows = term.rows;
 
   api.onPtyOutput((n) => {
     if (n.sessionId !== sessionId) return;
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   });
 
   try {
-    await api.ptySpawn({ sessionId, cols, rows });
+    await api.ptySpawn({ sessionId, cols: term.cols, rows: term.rows });
   } catch (err) {
     term.write(`\r\n\x1b[31mfailed to spawn shell: ${(err as Error).message}\x1b[0m\r\n`);
     return;
@@ -72,15 +72,17 @@ async function main(): Promise<void> {
     void api.ptyWrite({ sessionId, dataBase64: bytesToBase64(encoder.encode(data)) });
   });
 
-  let resizeTimer: number | undefined;
-  term.onResize(({ cols: c, rows: r }) => {
-    if (resizeTimer !== undefined) {
-      window.clearTimeout(resizeTimer);
-    }
-    resizeTimer = window.setTimeout(() => {
-      void api.ptyResize({ sessionId, cols: c, rows: r });
-    }, RESIZE_DEBOUNCE_MS);
+  // The sidecar coalesces resize requests over 50 ms (ADR-0006); no UI debounce.
+  term.onResize(({ cols, rows }) => {
+    void api.ptyResize({ sessionId, cols, rows });
   });
+
+  // xterm's onResize only fires from term.resize(...) — observe the container
+  // and let FitAddon translate DOM size changes into terminal cell counts.
+  const observer = new ResizeObserver(() => {
+    fit.fit();
+  });
+  observer.observe(terminalEl);
 
   term.focus();
 }

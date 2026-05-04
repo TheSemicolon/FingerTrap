@@ -21,6 +21,7 @@ internal sealed class LinuxPtyService : IPtyService
     {
         ArgumentNullException.ThrowIfNull(sessionId);
         ArgumentNullException.ThrowIfNull(options);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var session = StartSession(sessionId, options);
         if (!_sessions.TryAdd(sessionId, session))
@@ -29,20 +30,59 @@ internal sealed class LinuxPtyService : IPtyService
             throw new InvalidOperationException($"session '{sessionId}' is already active");
         }
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            _sessions.TryRemove(sessionId, out _);
+            session.Kill();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         StartReadLoop(session);
         StartExitWatcher(session);
         return Task.FromResult(session.Pid);
     }
 
-    public async ValueTask WriteAsync(string sessionId, ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+    public ValueTask WriteAsync(string sessionId, ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!_sessions.TryGetValue(sessionId, out var session))
         {
             throw new InvalidOperationException($"session '{sessionId}' is not active");
         }
 
-        await session.MasterStream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
-        await session.MasterStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        var span = data.Span;
+        var offset = 0;
+        while (offset < span.Length)
+        {
+            int written;
+            unsafe
+            {
+                fixed (byte* p = span)
+                {
+                    written = (int)LinuxNativeMethods.Write(session.MasterFd, p + offset, (nuint)(span.Length - offset));
+                }
+            }
+
+            if (written < 0)
+            {
+                var err = Marshal.GetLastPInvokeError();
+                if (err == 4) // EINTR
+                {
+                    continue;
+                }
+
+                throw new InvalidOperationException($"write(master) failed: errno={err}");
+            }
+
+            if (written == 0)
+            {
+                break;
+            }
+
+            offset += written;
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     public void Resize(string sessionId, int cols, int rows)
@@ -218,7 +258,7 @@ internal sealed class LinuxPtyService : IPtyService
         }
 
         var safeHandle = new SafeFileHandle(masterFd, ownsHandle: true);
-        var stream = new FileStream(safeHandle, FileAccess.ReadWrite, bufferSize: 1, isAsync: false);
+        var stream = new FileStream(safeHandle, FileAccess.Read, bufferSize: 4096, isAsync: false);
         return new Session(sessionId, pid, masterFd, stream);
     }
 
@@ -287,8 +327,7 @@ internal sealed class LinuxPtyService : IPtyService
                     }
 
                     _sessions.TryRemove(session.Id, out _);
-                    session.Cancellation.Cancel();
-                    session.MasterStream.Dispose();
+                    session.Cleanup();
                     Exited?.Invoke(this, new PtyExitEventArgs
                     {
                         SessionId = session.Id,
@@ -428,7 +467,19 @@ internal sealed class LinuxPtyService : IPtyService
                 // best-effort
             }
 
-            Cancellation.Cancel();
+            Cleanup();
+        }
+
+        public void Cleanup()
+        {
+            try
+            {
+                Cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
             try
             {
                 MasterStream.Dispose();
@@ -438,7 +489,23 @@ internal sealed class LinuxPtyService : IPtyService
                 // best-effort
             }
 
-            _resizeTimer?.Dispose();
+            Timer? timer;
+            lock (_resizeLock)
+            {
+                timer = _resizeTimer;
+                _resizeTimer = null;
+            }
+
+            timer?.Dispose();
+
+            try
+            {
+                Cancellation.Dispose();
+            }
+            catch
+            {
+                // best-effort
+            }
         }
     }
 

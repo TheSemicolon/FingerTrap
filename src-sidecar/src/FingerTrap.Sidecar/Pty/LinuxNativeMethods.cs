@@ -41,6 +41,9 @@ internal static partial class LinuxNativeMethods
     [LibraryImport("libc", EntryPoint = "close", SetLastError = true)]
     public static partial int Close(int fd);
 
+    [LibraryImport("libc", EntryPoint = "write", SetLastError = true)]
+    public static unsafe partial nint Write(int fd, byte* buf, nuint count);
+
     [LibraryImport("libc", EntryPoint = "fcntl", SetLastError = true)]
     public static partial int Fcntl(int fd, int cmd, int arg);
 
