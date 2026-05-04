@@ -111,7 +111,11 @@ jobs:
         run: |
           set -euo pipefail
           publish_dir="$RUNNER_TEMP/sidecar-publish"
+          dotnet restore src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
+            --locked-mode \
+            -r "${{ matrix.rid }}"
           dotnet publish src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
+            --no-restore \
             -c Release \
             -r "${{ matrix.rid }}" \
             --self-contained true \
