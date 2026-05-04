@@ -1,0 +1,46 @@
+name: enforce-gitflow
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+    branches: [dev, main]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  enforce:
+    name: enforce-gitflow
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate branch name and PR base (ADR-0004)
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          echo "INFO  base=$BASE head=$HEAD"
+          feature_re='^(feat|fix|docs|chore|refactor|test|ci|style)/[a-z0-9]+(-[a-z0-9]+)*$'
+          case "$BASE" in
+            dev)
+              if [[ ! "$HEAD" =~ $feature_re ]]; then
+                echo "ERROR [branch-name] head '$HEAD' must match '<type>/kebab-case-description' per ADR-0004."
+                echo "      allowed types: feat|fix|docs|chore|refactor|test|ci|style"
+                echo "      no hotfix/, release/, dev/, or claude/ prefixes"
+                exit 1
+              fi
+              echo "OK    [branch-name] $HEAD"
+              ;;
+            main)
+              if [[ "$HEAD" != "dev" ]]; then
+                echo "ERROR [pr-base] PRs targeting 'main' must come from 'dev' per ADR-0004 promotion strategy."
+                echo "      got head='$HEAD'"
+                exit 1
+              fi
+              echo "OK    [pr-base] dev -> main promotion"
+              ;;
+            *)
+              echo "ERROR [pr-base] unexpected base '$BASE'"
+              exit 1
+              ;;
+          esac

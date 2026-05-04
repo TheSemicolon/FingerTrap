@@ -72,6 +72,7 @@ required_files=(
     "src-tauri/src/sidecar.rs"
     ".github/workflows/ci.yml"
     ".github/workflows/lint-pr-title.yml"
+    ".github/workflows/enforce-gitflow.yml"
     ".github/PULL_REQUEST_TEMPLATE.md"
     "scripts/dev-setup.sh"
     "scripts/check.sh"
