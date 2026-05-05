@@ -1,0 +1,7 @@
+# Tauri build artifacts
+target/
+gen/
+
+# Sidecar binaries are produced by `dotnet publish` per RID — do not commit
+binaries/*
+!binaries/.gitkeep

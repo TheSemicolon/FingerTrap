@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>FingerTrap.Sidecar.Abstractions</RootNamespace>
+    <AssemblyName>FingerTrap.Sidecar.Abstractions</AssemblyName>
+  </PropertyGroup>
+</Project>
