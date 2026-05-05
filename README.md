@@ -64,4 +64,4 @@ scripts/check.sh
 
 ## Status
 
-M0 — skeleton. See `docs/milestones.md` for the full M0–M8 sequence.
+M1 — local PTY (Linux). See `docs/milestones.md` for the full M0–M8 sequence.
