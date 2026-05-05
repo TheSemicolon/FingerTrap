@@ -4,7 +4,7 @@ namespace FingerTrap.Sidecar.Pty;
 
 internal sealed class UnsupportedPtyService : IPtyService
 {
-    private const string Message = "PTY backend is only available on Linux at M1 (see ADR-0006).";
+    private const string Message = "PTY backend is only available on Linux and macOS; Windows is deferred (see ADR-0006 and ADR-0007).";
 
     public event EventHandler<PtyOutputEventArgs>? Output;
 

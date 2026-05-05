@@ -41,5 +41,10 @@ static IPtyService CreatePtyService()
         return new LinuxPtyService();
     }
 
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+    {
+        return new MacOsPtyService();
+    }
+
     return new UnsupportedPtyService();
 }
