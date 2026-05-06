@@ -190,7 +190,7 @@ internal sealed class MacOsPtyService : IPtyService
 
             attrInitialised = true;
 
-            if (MacOsNativeMethods.PosixSpawnattrSetflags(attr, MacOsNativeMethods.POSIX_SPAWN_SETSID) != 0)
+            if (MacOsNativeMethods.PosixSpawnattrSetflags(ref attr, MacOsNativeMethods.POSIX_SPAWN_SETSID) != 0)
             {
                 ThrowErrno("posix_spawnattr_setflags");
             }
@@ -202,24 +202,24 @@ internal sealed class MacOsPtyService : IPtyService
 
             actionsInitialised = true;
 
-            if (MacOsNativeMethods.PosixSpawnFileActionsAddopen(actions, 0, slavePath, MacOsNativeMethods.O_RDWR, 0) != 0)
+            if (MacOsNativeMethods.PosixSpawnFileActionsAddopen(ref actions, 0, slavePath, MacOsNativeMethods.O_RDWR, 0) != 0)
             {
                 ThrowErrno("posix_spawn_file_actions_addopen");
             }
 
-            if (MacOsNativeMethods.PosixSpawnFileActionsAdddup2(actions, 0, 1) != 0)
+            if (MacOsNativeMethods.PosixSpawnFileActionsAdddup2(ref actions, 0, 1) != 0)
             {
                 ThrowErrno("posix_spawn_file_actions_adddup2(1)");
             }
 
-            if (MacOsNativeMethods.PosixSpawnFileActionsAdddup2(actions, 0, 2) != 0)
+            if (MacOsNativeMethods.PosixSpawnFileActionsAdddup2(ref actions, 0, 2) != 0)
             {
                 ThrowErrno("posix_spawn_file_actions_adddup2(2)");
             }
 
             if (!string.IsNullOrEmpty(options.Cwd))
             {
-                if (MacOsNativeMethods.PosixSpawnFileActionsAddchdirNp(actions, options.Cwd) != 0)
+                if (MacOsNativeMethods.PosixSpawnFileActionsAddchdirNp(ref actions, options.Cwd) != 0)
                 {
                     ThrowErrno("posix_spawn_file_actions_addchdir_np");
                 }
@@ -231,7 +231,7 @@ internal sealed class MacOsPtyService : IPtyService
                 fixed (byte** argvPtr = argv.Pointers)
                 fixed (byte** envpPtr = envp.Pointers)
                 {
-                    spawnResult = MacOsNativeMethods.PosixSpawnp(out pid, shellPath, actions, attr, argvPtr, envpPtr);
+                    spawnResult = MacOsNativeMethods.PosixSpawnp(out pid, shellPath, ref actions, ref attr, argvPtr, envpPtr);
                 }
             }
 

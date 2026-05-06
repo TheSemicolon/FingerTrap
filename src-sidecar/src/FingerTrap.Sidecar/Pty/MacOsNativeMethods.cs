@@ -86,8 +86,15 @@ internal static partial class MacOsNativeMethods
     [LibraryImport(Libc, EntryPoint = "posix_spawnattr_destroy", SetLastError = true)]
     public static partial int PosixSpawnattrDestroy(ref nint attr);
 
+    // C signatures take posix_spawnattr_t * / posix_spawn_file_actions_t *,
+    // and on Darwin those typedefs are `void *`. So `T *` resolves to
+    // `void **` at the ABI — pointer-to-handle, not handle-by-value. Each
+    // setter dereferences the slot to extract the malloc'd struct pointer
+    // that init() wrote. `ref nint` matches that ABI; `nint` would pass
+    // the handle by value and cause silent garbage dereferences that look
+    // like spawn-returned-0 with no file actions actually applied.
     [LibraryImport(Libc, EntryPoint = "posix_spawnattr_setflags", SetLastError = true)]
-    public static partial int PosixSpawnattrSetflags(nint attr, short flags);
+    public static partial int PosixSpawnattrSetflags(ref nint attr, short flags);
 
     [LibraryImport(Libc, EntryPoint = "posix_spawn_file_actions_init", SetLastError = true)]
     public static partial int PosixSpawnFileActionsInit(out nint actions);
@@ -96,18 +103,18 @@ internal static partial class MacOsNativeMethods
     public static partial int PosixSpawnFileActionsDestroy(ref nint actions);
 
     [LibraryImport(Libc, EntryPoint = "posix_spawn_file_actions_addopen", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    public static partial int PosixSpawnFileActionsAddopen(nint actions, int fd, string path, int oflag, uint mode);
+    public static partial int PosixSpawnFileActionsAddopen(ref nint actions, int fd, string path, int oflag, uint mode);
 
     [LibraryImport(Libc, EntryPoint = "posix_spawn_file_actions_adddup2", SetLastError = true)]
-    public static partial int PosixSpawnFileActionsAdddup2(nint actions, int fd, int newfd);
+    public static partial int PosixSpawnFileActionsAdddup2(ref nint actions, int fd, int newfd);
 
     // posix_spawn_file_actions_addchdir_np was added in macOS 10.15. We
     // require macOS 11+, so this is safe.
     [LibraryImport(Libc, EntryPoint = "posix_spawn_file_actions_addchdir_np", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    public static partial int PosixSpawnFileActionsAddchdirNp(nint actions, string path);
+    public static partial int PosixSpawnFileActionsAddchdirNp(ref nint actions, string path);
 
     [LibraryImport(Libc, EntryPoint = "posix_spawnp", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    public static unsafe partial int PosixSpawnp(out int pid, string file, nint actions, nint attr, byte** argv, byte** envp);
+    public static unsafe partial int PosixSpawnp(out int pid, string file, ref nint actions, ref nint attr, byte** argv, byte** envp);
 
     // Status decoding macros are POSIX-mandated and identical to Linux.
     public static int WExitStatus(int status) => (status >> 8) & 0xff;
