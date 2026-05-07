@@ -26,7 +26,7 @@ fi
 
 # Full helper set per the agent-framework script-output convention; some are
 # unused in this script but kept for consistency with other repo scripts.
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 {
 ok()     { echo "OK    [$1] $2"; }
 skip()   { echo "SKIP  [$1] $2"; }
@@ -158,7 +158,24 @@ for adr in "${adr_files[@]}"; do
     fi
 done
 
-# ---- 4. RpcSurface.cs <-> api.ts pairing (heuristic) ----
+# ---- 4. packages.lock.json shape (RID-agnostic; see ADR-0009) ----
+LOCK_GUARD="hooks/check-lock-shape.sh"
+if [[ -x "$LOCK_GUARD" ]]; then
+    if lock_out=$("$LOCK_GUARD" 2>&1); then
+        ok "lock-shape" "all packages.lock.json files are RID-agnostic"
+        $VERBOSE && while IFS= read -r line; do detail "$line"; done <<<"$lock_out"
+    else
+        err "lock-shape" "RID contamination detected; run '$LOCK_GUARD' for detail"
+        while IFS= read -r line; do
+            [[ "$line" == ERROR* || "$line" == FAIL* ]] && detail "$line"
+        done <<<"$lock_out"
+        ((error_count++)) || true
+    fi
+else
+    skip "lock-shape" "$LOCK_GUARD not present or not executable"
+fi
+
+# ---- 5. RpcSurface.cs <-> api.ts pairing (heuristic) ----
 RPC="src-sidecar/src/FingerTrap.Sidecar/Ipc/RpcSurface.cs"
 API="src-ui/src/api.ts"
 if [[ -f "$RPC" && -f "$API" ]]; then
