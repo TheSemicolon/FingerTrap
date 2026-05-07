@@ -1,6 +1,6 @@
 # 0007 — macOS PTY implementation: TIOCPTYGNAME, opaque-pointer spawn handles, zsh fallback
 
-- Status: Accepted
+- Status: Superseded by [0008](0008-vendor-porta-pty.md)
 - Date: 2026-05-05
 
 ## Context and problem statement
@@ -80,14 +80,36 @@ POSIX-mandated and identical between platforms.
 ### Spawn-handle ABI
 
 `posix_spawnattr_t` and `posix_spawn_file_actions_t` on Darwin are
-`typedef void *` opaque pointer types. `posix_spawnattr_init(attrp)`
-malloc()s the underlying struct and writes the heap pointer into `*attrp`.
-Our P/Invoke uses `out nint attr` for `*_init` (lets the .NET marshaller
-allocate a single `nint` slot and pass its address) and `nint attr` for
-all subsequent calls that take the handle by value. `*_destroy` takes
-`ref nint` to match the Init/Destroy symmetry on macOS where Destroy
-calls `free()` on the pointer. We do not allocate the 1024-byte buffer
-the Linux path uses, because there is no inline struct to hold.
+`typedef void *` opaque pointer types. Every C function in the
+`posix_spawn` family takes the handle as `T *attr` (e.g.
+`posix_spawnattr_setflags(posix_spawnattr_t *attr, short flags)`),
+which after typedef substitution resolves to `void **attr`. The xnu
+implementation dereferences that pointer to extract the heap pointer
+the matching `*_init` wrote, then operates on the underlying struct.
+
+Therefore every P/Invoke that takes a handle parameter uses `ref nint`
+(or `out nint` for init), not `nint`:
+
+- `*_init(out nint)` — .NET passes a pointer to an `nint` slot; the
+  C side `malloc`s the struct and writes the heap pointer into the slot.
+- `*_destroy(ref nint)` — same ABI; C dereferences to free.
+- Setters (`setflags`, `addopen`, `adddup2`, `addchdir_np`) — `ref nint`.
+- `posix_spawnp(..., ref nint actions, ref nint attr, ...)` — same.
+
+Passing the handle by value (`nint` instead of `ref nint`) compiles
+cleanly and `posix_spawnp` returns 0, but the C side dereferences the
+handle expecting `void **` and reads garbage from the first 8 bytes of
+the underlying struct. The net effect is that no file actions are
+registered: the spawned shell inherits the parent's stdin/stdout/stderr
+instead of attaching to the slave PTY. This was the failure mode caught
+during initial M2 Max validation. Linux's glibc uses an inline-struct
+`posix_spawnattr_t` with the same `T *` calling convention, so the
+Linux service's `nint` parameter happens to be correct on glibc — but
+it is not portable to Darwin.
+
+We do not allocate the 1024-byte buffer the Linux path uses, because
+there is no inline struct to hold; the .NET side just owns the
+pointer-sized slot.
 
 ### Slave path retrieval
 

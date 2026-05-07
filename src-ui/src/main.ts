@@ -44,6 +44,12 @@ async function main(): Promise<void> {
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(terminalEl);
+
+  // Defer the first fit() until the next animation frame so the terminal's
+  // cell-measurement DOM has had a layout pass. fit() before layout returns
+  // a divide-by-near-zero cols (thousands), which the sidecar then sets as
+  // the pty winsize and zsh's PROMPT_SP fills lines with that many spaces.
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   fit.fit();
 
   await api.start();
@@ -69,12 +75,16 @@ async function main(): Promise<void> {
   }
 
   term.onData((data) => {
-    void api.ptyWrite({ sessionId, dataBase64: bytesToBase64(encoder.encode(data)) });
+    api.ptyWrite({ sessionId, dataBase64: bytesToBase64(encoder.encode(data)) }).catch((err: unknown) => {
+      term.write(`\r\n\x1b[31m[ptyWrite error] ${(err as Error).message}\x1b[0m\r\n`);
+    });
   });
 
   // The sidecar coalesces resize requests over 50 ms (ADR-0006); no UI debounce.
   term.onResize(({ cols, rows }) => {
-    void api.ptyResize({ sessionId, cols, rows });
+    api.ptyResize({ sessionId, cols, rows }).catch((err: unknown) => {
+      term.write(`\r\n\x1b[31m[ptyResize error] ${(err as Error).message}\x1b[0m\r\n`);
+    });
   });
 
   // xterm's onResize only fires from term.resize(...) — observe the container
