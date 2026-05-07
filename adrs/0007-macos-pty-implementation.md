@@ -1,6 +1,6 @@
 # 0007 — macOS PTY implementation: TIOCPTYGNAME, opaque-pointer spawn handles, zsh fallback
 
-- Status: Accepted
+- Status: Superseded by [0008](0008-vendor-porta-pty.md)
 - Date: 2026-05-05
 
 ## Context and problem statement

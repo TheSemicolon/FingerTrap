@@ -3,7 +3,9 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="Nerdbank.MessagePack" Version="1.1.62" />
     <PackageVersion Include="StreamJsonRpc" Version="2.24.84" />
+    <PackageVersion Include="Vanara.PInvoke.Kernel32" Version="4.2.1" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
   </ItemGroup>
