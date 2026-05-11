@@ -8,9 +8,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FingerTrap.Sidecar.Abstractions\FingerTrap.Sidecar.Abstractions.csproj" />
+    <ProjectReference Include="..\..\external\Porta.Pty\Porta.Pty\Porta.Pty.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Nerdbank.MessagePack" />
     <PackageReference Include="StreamJsonRpc" />
   </ItemGroup>
 

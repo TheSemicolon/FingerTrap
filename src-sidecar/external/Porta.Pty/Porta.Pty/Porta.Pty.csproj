@@ -1,0 +1,91 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Vendored copy of Porta.Pty for FingerTrap. See ADR-0008 and
+    ../UPSTREAM.md for provenance and sync procedure.
+    The C-shim build is invoked here as a pre-compile target so
+    the consuming sidecar's `dotnet build`/`publish` produces the
+    libporta_pty native library alongside the managed assembly.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>8.0</LangVersion>
+    <RootNamespace>Porta.Pty</RootNamespace>
+    <AssemblyName>Porta.Pty</AssemblyName>
+
+    <!-- Vendored: do not pack as NuGet, do not generate symbol package. -->
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+    <!-- Override inherited settings from src-sidecar/Directory.Build.props
+         that would conflict with this vendored snapshot:
+         - ImplicitUsings emits a generated GlobalUsings.g.cs that requires
+           C# 10+; upstream targets C# 8.0.
+         - TreatWarningsAsErrors and EnforceCodeStyleInBuild would fail the
+           build on style choices we don't intend to fix in vendored source.
+         - InvariantGlobalization is irrelevant for a class library and can
+           cause Porta.Pty's culture-aware string handling to misbehave. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <AnalysisLevel>none</AnalysisLevel>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CS1591;CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8619;CS8625;CA1416;CA1822;CA1825;CA2101;SYSLIB1054;IDE0008;IDE0049;IDE0066</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Vanara.PInvoke.Kernel32" />
+  </ItemGroup>
+
+  <!--
+    Build the native C shim before MSBuild assigns target paths to Content
+    items, so the dynamically-added Content items below are picked up by
+    the same build. We invoke clang (macOS) / cc (Linux) directly rather
+    than CMake to avoid imposing a cmake install on every developer
+    machine. The single-file shim doesn't benefit from CMake's portability
+    machinery; if the build flags ever grow non-trivial, reintroduce the
+    upstream CMakeLists.txt (preserved verbatim under Porta.Pty.Native/).
+  -->
+  <Target Name="BuildPortaPtyNative" BeforeTargets="AssignTargetPaths;BeforeBuild">
+    <PropertyGroup>
+      <PortaPtyNativeSrc>$(MSBuildThisFileDirectory)..\Porta.Pty.Native</PortaPtyNativeSrc>
+      <PortaPtyNativeBuild>$(PortaPtyNativeSrc)\build\bin</PortaPtyNativeBuild>
+    </PropertyGroup>
+    <MakeDir Directories="$(PortaPtyNativeBuild)" />
+
+    <Message Importance="high"
+             Condition="$([MSBuild]::IsOSPlatform('OSX'))"
+             Text="[Porta.Pty] clang -dynamiclib -> $(PortaPtyNativeBuild)/libporta_pty.dylib" />
+    <Exec
+      Condition="$([MSBuild]::IsOSPlatform('OSX'))"
+      Command="clang -O2 -fvisibility=hidden -dynamiclib -framework CoreFoundation -install_name &quot;@loader_path/libporta_pty.dylib&quot; -o &quot;$(PortaPtyNativeBuild)/libporta_pty.dylib&quot; &quot;$(PortaPtyNativeSrc)/porta_pty.c&quot;" />
+
+    <Message Importance="high"
+             Condition="$([MSBuild]::IsOSPlatform('Linux'))"
+             Text="[Porta.Pty] cc -shared -fPIC -> $(PortaPtyNativeBuild)/libporta_pty.so" />
+    <Exec
+      Condition="$([MSBuild]::IsOSPlatform('Linux'))"
+      Command="cc -O2 -fvisibility=hidden -shared -fPIC -o &quot;$(PortaPtyNativeBuild)/libporta_pty.so&quot; &quot;$(PortaPtyNativeSrc)/porta_pty.c&quot; -lutil" />
+
+    <!--
+      Add the built artifact to the Content list dynamically so the consuming
+      project copies it to its output directory. Done inside the target so
+      the file existence check sees the just-built file.
+    -->
+    <ItemGroup>
+      <Content Include="$(PortaPtyNativeBuild)\libporta_pty.dylib"
+               Condition="Exists('$(PortaPtyNativeBuild)\libporta_pty.dylib')"
+               Link="libporta_pty.dylib"
+               CopyToOutputDirectory="PreserveNewest"
+               Pack="false" />
+      <Content Include="$(PortaPtyNativeBuild)\libporta_pty.so"
+               Condition="Exists('$(PortaPtyNativeBuild)\libporta_pty.so')"
+               Link="libporta_pty.so"
+               CopyToOutputDirectory="PreserveNewest"
+               Pack="false" />
+    </ItemGroup>
+  </Target>
+
+</Project>

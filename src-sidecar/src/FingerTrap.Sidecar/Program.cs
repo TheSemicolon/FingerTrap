@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using FingerTrap.Sidecar.Abstractions;
 using FingerTrap.Sidecar.Ipc;
 using FingerTrap.Sidecar.Pty;
@@ -19,13 +18,21 @@ formatter.JsonSerializer.ContractResolver = new CamelCasePropertyNamesContractRe
 
 var handler = new HeaderDelimitedMessageHandler(stdio, stdio, formatter);
 
-await using var pty = CreatePtyService();
+// Single platform-agnostic PtyService backed by Porta.Pty (ADR-0008);
+// platform branching now lives inside the vendored library.
+await using var pty = new PtyService();
 using var surface = new RpcSurface(pty);
 
 var rpc = new JsonRpc(handler);
 rpc.AddLocalRpcTarget(surface, new JsonRpcTargetOptions
 {
     MethodNameTransform = CommonMethodNameTransforms.CamelCase,
+    // vscode-jsonrpc's RequestType1<T> with the default ParameterStructures.auto
+    // serializes a single object arg as `params: {...}` (named). With this
+    // flag, StreamJsonRpc deserializes the entire params object into the
+    // method's single non-CancellationToken parameter, instead of trying to
+    // match each top-level key as a separate named argument.
+    UseSingleObjectParameterDeserialization = true,
 });
 surface.AttachRpc(rpc);
 rpc.StartListening();
@@ -33,13 +40,3 @@ rpc.StartListening();
 Console.Error.WriteLine("fingertrap-sidecar: listening on stdio");
 await rpc.Completion;
 Console.Error.WriteLine("fingertrap-sidecar: rpc completion");
-
-static IPtyService CreatePtyService()
-{
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-    {
-        return new LinuxPtyService();
-    }
-
-    return new UnsupportedPtyService();
-}

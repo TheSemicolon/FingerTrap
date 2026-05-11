@@ -1,0 +1,19 @@
+# markdownlint-cli2 configuration for FingerTrap.
+# See https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+config:
+  default: true
+  MD013: false        # line length — impractical for prose, especially
+                      # the kind of long-form context-and-rationale prose
+                      # we use in ADRs. We rely on editors with soft-wrap.
+  MD033: false        # inline HTML — needed for GitHub-flavored markdown
+                      # (e.g., <details>, <summary>) we may want later.
+  MD041: false        # first line h1 — conflicts with frontmatter and
+                      # the templated ADR shape (Status / Date metadata
+                      # before the first heading).
+ignores:
+  - "node_modules/**"
+  - "src-ui/dist/**"
+  - "src-tauri/target/**"
+  - "src-sidecar/**/bin/**"
+  - "src-sidecar/**/obj/**"
+  - "src-sidecar/external/Porta.Pty/**"  # vendored — see ADR-0008

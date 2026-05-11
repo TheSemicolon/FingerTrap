@@ -64,4 +64,4 @@ scripts/check.sh
 
 ## Status
 
-M1 — local PTY (Linux). See `docs/milestones.md` for the full M0–M8 sequence.
+M1 — local PTY (Linux, macOS). Windows deferred. See `docs/milestones.md` for the full M0–M8 sequence.

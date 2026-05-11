@@ -12,7 +12,7 @@ from a button click. The sidecar's `RpcSurface.PingAsync` returns
 `"pong: hello"`. The reply renders in the window. CI is green on all three
 runners. `scripts/check.sh` passes locally.
 
-## M1 — Local PTY integration (Linux first)
+## M1 — Local PTY integration (Linux + macOS)
 
 First real keypress end-to-end. `IPtyService` implementation spawns a
 local shell over a pseudoterminal. xterm.js renders sidecar PTY output
@@ -20,17 +20,20 @@ via JSON-RPC notifications (`pty/output`). Keystrokes flow back through
 `pty/write`. Resize is debounced on the .NET side and forwarded via
 `pty/resize`. Sidecar emits `pty/exit` when the shell terminates.
 
-The Linux backend is implemented via direct libc P/Invoke
-(`posix_openpt` + `posix_spawn` with `POSIX_SPAWN_SETSID`); see
-ADR-0006. macOS and Windows are deferred — `pty/spawn` throws
-`PlatformNotSupportedException` on those platforms until their
-backends land.
+The Linux backend uses direct libc P/Invoke (`posix_openpt` +
+`posix_spawn` with `POSIX_SPAWN_SETSID`); see ADR-0006. The macOS
+backend mirrors that shape with Darwin-specific constants and
+`TIOCPTYGNAME` in lieu of `ptsname_r`; see ADR-0007. Windows is
+deferred — `pty/spawn` throws `PlatformNotSupportedException` on
+Windows until a ConPty backend lands.
 
-**Acceptance (Linux):** `pnpm tauri dev` opens a window with a shell
-prompt rendered in xterm.js. `ls` produces correct output. Keystrokes
-echo. Window resize updates the PTY size and the prompt redraws
-cleanly. CI is green on all three runners (sidecar/ui/tauri matrices
-build everywhere; PTY behavior is exercised on Linux only).
+**Acceptance (Linux + macOS):** `pnpm tauri dev` opens a window with a
+shell prompt rendered in xterm.js. `ls` produces correct output.
+Keystrokes echo. Window resize updates the PTY size and the prompt
+redraws cleanly. CI is green on all three runners (sidecar/ui/tauri
+matrices build everywhere; runtime PTY behavior is exercised
+manually on Linux and macOS, automatically only at compile/link in
+CI).
 
 ## M2 — Local terminal panes
 
