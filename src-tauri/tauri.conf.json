@@ -7,7 +7,11 @@
     "frontendDist": "../src-ui/dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "pnpm --dir src-ui dev",
-    "beforeBuildCommand": "pnpm --dir src-ui build"
+    "beforeBuildCommand": "pnpm --dir src-ui build",
+    "beforeBundleCommand": {
+      "script": "bash scripts/stage-native-lib.sh",
+      "cwd": ".."
+    }
   },
   "app": {
     "windows": [
@@ -25,7 +29,7 @@
     }
   },
   "bundle": {
-    "active": false,
+    "active": true,
     "targets": "all",
     "externalBin": ["binaries/fingertrap-sidecar"],
     "icon": [

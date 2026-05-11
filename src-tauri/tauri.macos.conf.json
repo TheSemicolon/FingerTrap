@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "macOS": {
+      "files": {
+        "MacOS/libporta_pty.dylib": "binaries/libporta_pty.dylib"
+      }
+    }
+  }
+}
