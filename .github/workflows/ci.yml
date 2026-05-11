@@ -130,7 +130,7 @@ jobs:
 
           # Stage the companion native PTY library next to the sidecar so
           # both src-tauri/build.rs (dev) and the Tauri bundler (production
-          # via bundle.macOS.frameworks / bundle.resources) can find it.
+          # via bundle.macOS.files / bundle.resources) can find it.
           # Windows has no companion lib — Porta.Pty uses ConPTY via inbox
           # kernel32. See ADR-0010.
           case "${{ runner.os }}" in
@@ -144,6 +144,10 @@ jobs:
               # directories are different, so .NET's app-directory probe
               # would fail. patchelf adds an RPATH to the sidecar that
               # points the OS dynamic linker at the resource directory.
+              # The literal '$ORIGIN' must reach the ELF DT_RUNPATH —
+              # the OS dynamic linker substitutes it at load time per
+              # ld.so(8). Single quotes prevent bash expansion at CI time.
+              # shellcheck disable=SC2016
               patchelf --add-rpath '$ORIGIN/../lib/FingerTrap' "$sidecar_dst"
               ;;
             Windows)
