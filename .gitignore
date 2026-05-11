@@ -457,6 +457,7 @@ src-tauri/target/
 src-tauri/gen/
 src-tauri/binaries/*
 !src-tauri/binaries/.gitkeep
+src-tauri/transfer_ssh_deploykey*
 
 # .NET publish output (sidecar artifacts staged for Tauri bundle)
 src-sidecar/**/publish/
