@@ -79,6 +79,72 @@ chmod +x hooks/check-lock-shape.sh
 
 The hook auto-detects staged-vs-working mode by checking arguments; without args it scans the working tree, so the symlink does the right thing for pre-commit.
 
+## Production bundle workflow
+
+Day-to-day development uses `cargo tauri dev`, which reads
+`src-tauri/binaries/libporta_pty.{dylib,so}` and stages it next to the
+sidecar in `target/<profile>/` via `src-tauri/build.rs`. The dev workflow
+is unchanged by the bundling work.
+
+To produce a real `.app` / `.deb` / `.AppImage` locally, you must first
+publish the sidecar so the companion native lib lands in
+`src-tauri/binaries/` alongside the sidecar binary, then run the Tauri
+bundler. See [`ADR-0010`](adrs/0010-tauri-bundle-companion-libs.md) for the
+full mechanism (`bundle.macOS.frameworks` on macOS, `bundle.resources` +
+RPATH on Linux).
+
+### macOS (arm64)
+
+```bash
+publish_dir=$(mktemp -d)
+dotnet publish src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
+  -c Release -r osx-arm64 --self-contained true \
+  -p:PublishSingleFile=true -p:DebugType=embedded \
+  -o "$publish_dir"
+mkdir -p src-tauri/binaries
+cp "$publish_dir/fingertrap-sidecar" \
+   src-tauri/binaries/fingertrap-sidecar-aarch64-apple-darwin
+cp "$publish_dir/libporta_pty.dylib" src-tauri/binaries/libporta_pty.dylib
+cd src-tauri && cargo tauri build
+# .app at src-tauri/target/release/bundle/macos/FingerTrap.app
+```
+
+After `dotnet publish`, **do not stage `packages.lock.json` changes** — the
+publish-side restore rewrites them with RID-specific graph entries that
+break CI. The lock-shape guard catches this if you forget. See the
+"Sidecar publish workflow" section above.
+
+### Linux (x64 or arm64)
+
+```bash
+publish_dir=$(mktemp -d)
+dotnet publish src-sidecar/src/FingerTrap.Sidecar/FingerTrap.Sidecar.csproj \
+  -c Release -r linux-arm64 --self-contained true \
+  -p:PublishSingleFile=true -p:DebugType=embedded \
+  -o "$publish_dir"
+mkdir -p src-tauri/binaries
+sidecar_dst=src-tauri/binaries/fingertrap-sidecar-aarch64-unknown-linux-gnu
+cp "$publish_dir/fingertrap-sidecar" "$sidecar_dst"
+cp "$publish_dir/libporta_pty.so"   src-tauri/binaries/libporta_pty.so
+patchelf --add-rpath '$ORIGIN/../lib/FingerTrap' "$sidecar_dst"
+cd src-tauri && cargo tauri build
+# .deb at src-tauri/target/release/bundle/deb/
+# .AppImage at src-tauri/target/release/bundle/appimage/
+```
+
+The `patchelf` step is what tells the Linux dynamic linker to find
+`libporta_pty.so` at `/usr/lib/FingerTrap/` (where `bundle.resources`
+places it) when invoked from `/usr/bin/fingertrap-sidecar`.
+
+### Skip bundling
+
+To compile and link without producing a bundle (useful for fast
+iteration):
+
+```bash
+cargo tauri build --no-bundle
+```
+
 ## Validation before opening a PR
 
 ```bash
