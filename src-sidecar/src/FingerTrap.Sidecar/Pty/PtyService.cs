@@ -32,7 +32,7 @@ internal sealed class PtyService : IPtyService
         {
             App = shellPath,
             CommandLine = Array.Empty<string>(),
-            Cwd = string.IsNullOrEmpty(options.Cwd) ? Environment.CurrentDirectory : options.Cwd,
+            Cwd = ResolveCwd(options.Cwd),
             Cols = Math.Max(1, options.Cols),
             Rows = Math.Max(1, options.Rows),
             Environment = options.Env is not null
@@ -133,6 +133,25 @@ internal sealed class PtyService : IPtyService
         }
 
         return "/bin/sh";
+    }
+
+    internal static string ResolveCwd(string? requested)
+    {
+        if (!string.IsNullOrEmpty(requested))
+        {
+            return requested;
+        }
+
+        // Default to the user's home directory so GUI launches (e.g.,
+        // macOS `open FingerTrap.app`) don't inherit the app process's
+        // cwd ("/"). SpecialFolder.UserProfile returns $HOME on Unix
+        // and %USERPROFILE% on Windows. Fall back to CurrentDirectory
+        // only if neither is set — a degenerate environment where the
+        // spawn would likely fail anyway, but preserving the prior
+        // behaviour rather than throwing here keeps the spawn error
+        // path visible at the same layer as before.
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return !string.IsNullOrEmpty(home) ? home : Environment.CurrentDirectory;
     }
 
     private void StartReadLoop(Session session)
