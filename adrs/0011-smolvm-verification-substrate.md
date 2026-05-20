@@ -1,6 +1,6 @@
 # 0011 — SmolVM as the standard local verification substrate
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-05-19
 
 ## Context and problem statement
