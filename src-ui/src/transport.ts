@@ -21,6 +21,12 @@ function parseContentLength(headers: string): number {
 export class TauriMessageReader extends AbstractMessageReader {
   private callback: DataCallback | undefined;
   private buffer = new Uint8Array(0);
+  // Messages parsed before listen() registers its callback are queued
+  // here and flushed in listen(). Without this, any pty/output
+  // notification (or response) that arrives between `await
+  // reader.start()` and `connection.listen()` in api.ts would be
+  // silently dropped by `this.callback?.(message)`. See issue #18.
+  private pending: Message[] = [];
   private readonly channel: Channel<number[]>;
 
   constructor() {
@@ -35,6 +41,12 @@ export class TauriMessageReader extends AbstractMessageReader {
 
   listen(callback: DataCallback): Disposable {
     this.callback = callback;
+    // Flush anything that arrived during the startup gap. Snapshot and
+    // clear first so a re-entrant callback that triggers another feed()
+    // can't see a half-drained queue.
+    const queued = this.pending;
+    this.pending = [];
+    for (const message of queued) callback(message);
     return {
       dispose: () => {
         this.callback = undefined;
@@ -79,7 +91,11 @@ export class TauriMessageReader extends AbstractMessageReader {
         continue;
       }
 
-      this.callback?.(message);
+      if (this.callback) {
+        this.callback(message);
+      } else {
+        this.pending.push(message);
+      }
     }
   }
 
