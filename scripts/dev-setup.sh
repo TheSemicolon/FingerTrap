@@ -12,20 +12,28 @@
 #   1  one or more dependencies missing (in --check mode) or install failed
 #   2  precondition failure (unsupported platform, bad arguments)
 #
-# Tools verified:
+# Tools verified (in order checked):
 #   - .NET 10 SDK         (sidecar: dotnet build / test)
 #   - Node.js >= 22       (UI: vite, eslint, typescript)
-#   - corepack            (ships with Node; manages pnpm)
-#   - pnpm 10             (UI package manager)
+#   - corepack + pnpm 10  (UI package manager)
 #   - rustup + cargo      (Tauri shell: cargo check / clippy / fmt)
-#   - Tauri Linux deps    (libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf)
+#   - cargo-tauri (CLI)   (cargo tauri dev / build)
+#   - Tauri Linux deps    (libwebkit2gtk-4.1-dev libappindicator3-dev
+#                          librsvg2-dev patchelf build-essential)
 #
-# Platforms:
-#   - Debian/Ubuntu Linux: full --install support via apt and rustup
-#   - macOS:               --install supports rustup, pnpm; .NET prints guidance
-#   - Windows:             prints guidance only; manual install via winget
+# Platforms (--install support):
+#   - Linux (Debian/Ubuntu): .NET via Microsoft's dotnet-install.sh; rustup,
+#                            cargo-tauri, pnpm, apt-based Tauri deps.
+#   - macOS:                 .NET via dotnet-install.sh; rustup, cargo-tauri,
+#                            pnpm. (Node prints guidance — use nvm/volta.)
+#   - Windows:               prints guidance only; manual install via winget.
 #
 # Output follows the agent-framework script-output convention.
+#
+# Verification:
+#   This script is verified end-to-end on fresh Debian 13 and Ubuntu 24.04
+#   hosts using SmolVM (https://github.com/smol-machines/smolvm). Codifying
+#   SmolVM as the standard verification substrate is tracked in #28 / #29.
 
 set -euo pipefail
 
@@ -97,15 +105,29 @@ check_dotnet() {
     fi
 
     case "$PLATFORM" in
-        linux)
-            info "installing .NET 10 SDK via apt (Debian/Ubuntu)"
-            sudo apt-get update
-            sudo apt-get install -y dotnet-sdk-10.0
+        linux | macos)
+            # Use Microsoft's official dotnet-install.sh rather than an
+            # apt package. Rationale: (a) the apt path requires the
+            # packages-microsoft-prod repo on vanilla Debian (Ubuntu
+            # 24.04 universe ships dotnet-sdk-10.0 but Debian 13 does
+            # not), so a single distro-agnostic path is simpler and more
+            # portable; (b) no third-party apt-source trust decision
+            # made silently inside this script; (c) identical code path
+            # for macOS replaces "install manually" guidance. Installs
+            # per-user under $HOME/.dotnet; user is told to update PATH.
+            local install_dir="$HOME/.dotnet"
+            local installer
+            installer="$(mktemp)"
+            info "fetching dotnet-install.sh from https://dot.net/v1/dotnet-install.sh"
+            curl --proto '=https' --tlsv1.2 -fsSL https://dot.net/v1/dotnet-install.sh -o "$installer"
+            chmod +x "$installer"
+            info "installing .NET 10 SDK to $install_dir (per-user, no root)"
+            "$installer" --channel 10.0 --install-dir "$install_dir"
+            rm -f "$installer"
+            export PATH="$install_dir:$PATH"
             ((installs++)) || true
             ok "dotnet" "$(dotnet --version)"
-            ;;
-        macos)
-            warn "dotnet" "install manually: brew install --cask dotnet-sdk (or download from https://dotnet.microsoft.com)"
+            warn "dotnet" "add $install_dir to PATH in your shell rc (e.g. ~/.bashrc): export PATH=\"\$HOME/.dotnet:\$PATH\""
             ((warns++)) || true
             ;;
         windows)
@@ -214,6 +236,45 @@ check_rust() {
 }
 
 # --------------------------------------------------------------------------
+# cargo-tauri — Tauri CLI required for `cargo tauri dev` and `cargo tauri build`
+# --------------------------------------------------------------------------
+check_cargo_tauri() {
+    # The Tauri CLI binary is `cargo-tauri` on disk (cargo subcommand
+    # convention). Users invoke it as `cargo tauri`. Check for the
+    # binary directly rather than via `cargo tauri --version`, which
+    # would slow the check by going through cargo's subcommand probe.
+    if command -v cargo-tauri >/dev/null 2>&1; then
+        ok "cargo-tauri" "$(cargo-tauri --version 2>/dev/null | head -1)"
+        return 0
+    fi
+
+    if ! command -v cargo >/dev/null 2>&1; then
+        warn "cargo-tauri" "cargo not on PATH — fix the rust check above first"
+        ((warns++)) || true
+        return 1
+    fi
+
+    if [[ "$MODE" != "install" ]]; then
+        warn "cargo-tauri" "not installed — run 'cargo install tauri-cli --version \"^2.0\" --locked' or rerun with --install"
+        ((warns++)) || true
+        return 1
+    fi
+
+    case "$PLATFORM" in
+        linux | macos)
+            info "installing tauri-cli ^2.0 via cargo (this can take several minutes on first install)"
+            cargo install tauri-cli --version "^2.0" --locked
+            ((installs++)) || true
+            ok "cargo-tauri" "$(cargo-tauri --version 2>/dev/null | head -1)"
+            ;;
+        windows)
+            warn "cargo-tauri" "install manually: cargo install tauri-cli --version \"^2.0\" --locked"
+            ((warns++)) || true
+            ;;
+    esac
+}
+
+# --------------------------------------------------------------------------
 # Tauri Linux system dependencies
 # --------------------------------------------------------------------------
 check_tauri_linux_deps() {
@@ -222,11 +283,18 @@ check_tauri_linux_deps() {
         return 0
     fi
 
+    # build-essential is required by Porta.Pty's MSBuild target
+    # `BuildPortaPtyNative`, which invokes `cc -shared -fPIC` to build
+    # libporta_pty.so. On a clean Debian 13 / Ubuntu 24.04 box, cc is
+    # not present until build-essential is installed. CI runners get
+    # this implicitly because GitHub's ubuntu-24.04 image preinstalls
+    # build-essential, but a fresh contributor's box does not.
     local pkgs=(
         libwebkit2gtk-4.1-dev
         libappindicator3-dev
         librsvg2-dev
         patchelf
+        build-essential
     )
 
     if ! command -v dpkg >/dev/null 2>&1; then
@@ -263,11 +331,17 @@ check_tauri_linux_deps() {
 # --------------------------------------------------------------------------
 # Run checks
 # --------------------------------------------------------------------------
+# Ordering note: check_tauri_linux_deps must run before check_cargo_tauri
+# because `cargo install tauri-cli` compiles from source and needs `cc`,
+# which is provided by the build-essential package in the Linux-deps
+# group. On non-Linux platforms the linux-deps check is a no-op SKIP
+# and the order is irrelevant.
 check_dotnet           || true
 check_node             || true
 check_pnpm             || true
 check_rust             || true
 check_tauri_linux_deps || true
+check_cargo_tauri      || true
 
 # --------------------------------------------------------------------------
 # Summary

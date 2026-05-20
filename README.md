@@ -38,13 +38,19 @@ Verify and install required tooling:
 
 ```bash
 scripts/dev-setup.sh             # check only
-scripts/dev-setup.sh --install   # install missing tools (rustup, pnpm via corepack, apt deps)
+scripts/dev-setup.sh --install   # install missing tools (.NET via dotnet-install.sh,
+                                 # rustup, cargo-tauri CLI, pnpm via corepack, apt deps)
 ```
 
 Tools required: .NET 10 SDK, Node.js 22+, pnpm 10 (via corepack), rustup
-(stable) + cargo, and on Linux the Tauri system libraries. After installing
-rustup, run `. "$HOME/.cargo/env"` (or restart your shell) before invoking
-`cargo`.
+(stable) + cargo, the `cargo-tauri` CLI (`tauri-cli ^2.0`), and on Linux
+the Tauri system libraries (`libwebkit2gtk-4.1-dev`, `libappindicator3-dev`,
+`librsvg2-dev`, `patchelf`, `build-essential`). After install, add the new
+PATH entries to your shell rc: `export PATH="$HOME/.dotnet:$HOME/.cargo/bin:$PATH"`
+(or restart your shell) before invoking `dotnet` / `cargo`.
+
+Node.js itself is not auto-installed — use [nvm](https://github.com/nvm-sh/nvm)
+or [volta](https://volta.sh) to install Node 22 before running `--install`.
 
 Per-component dev loops:
 
